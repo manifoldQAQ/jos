@@ -387,7 +387,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
             pde_t mask = PTE_P | PTE_U | PTE_W;
             *pde_ptr = page2pa(pgtab_page) | mask;
         } else {
-    return NULL;
+            return NULL;
         }
     }
     return ((pte_t *) KADDR(PTE_ADDR(*pde_ptr))) + PTX(va);
@@ -477,7 +477,7 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
     pte_t *pte_ptr = pgdir_walk(pgdir, va, 0);
     // pte non-exist OR pte not mapped
     if (!pte_ptr || !(*pte_ptr & PTE_P))
-    return NULL;
+        return NULL;
     if (pte_store)
         *pte_store = pte_ptr;
     return pa2page(PTE_ADDR(*pte_ptr));
