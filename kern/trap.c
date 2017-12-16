@@ -64,26 +64,27 @@ trap_init(void)
 {
     extern struct Segdesc gdt[];
     // register interrupt hander here
-    extern void T_DIVIDE_ENTRY();
-    extern void T_DEBUG_ENTRY();
-    extern void T_NMI_ENTRY();
-    extern void T_BRKPT_ENTRY();
-    extern void T_OFLOW_ENTRY();
-    extern void T_BOUND_ENTRY();
-    extern void T_ILLOP_ENTRY();
-    extern void T_DEVICE_ENTRY();
-    extern void T_DBLFLT_ENTRY();
-    // extern void T_COPROC_ENTRY();
-    extern void T_TSS_ENTRY();
-    extern void T_SEGNP_ENTRY();
-    extern void T_STACK_ENTRY();
-    extern void T_GPFLT_ENTRY();
-    extern void T_PGFLT_ENTRY();
+    void T_DIVIDE_ENTRY();
+    void T_DEBUG_ENTRY();
+    void T_NMI_ENTRY();
+    void T_BRKPT_ENTRY();
+    void T_OFLOW_ENTRY();
+    void T_BOUND_ENTRY();
+    void T_ILLOP_ENTRY();
+    void T_DEVICE_ENTRY();
+    void T_DBLFLT_ENTRY();
+    // void T_COPROC_ENTRY();
+    void T_TSS_ENTRY();
+    void T_SEGNP_ENTRY();
+    void T_STACK_ENTRY();
+    void T_GPFLT_ENTRY();
+    void T_PGFLT_ENTRY();
     // extern void *T_RES_ENTRY();
-    extern void T_FPERR_ENTRY();
-    extern void T_ALIGN_ENTRY();
-    extern void T_MCHK_ENTRY();
-    extern void T_SIMDERR_ENTRY();
+    void T_FPERR_ENTRY();
+    void T_ALIGN_ENTRY();
+    void T_MCHK_ENTRY();
+    void T_SIMDERR_ENTRY();
+    void T_SYSCALL_ENTRY();
 
     // LAB 3: Your code here.
     // Set up interrupt descriptor table, according to Linux kernel
@@ -108,6 +109,7 @@ trap_init(void)
     SETGATE(idt[T_ALIGN], 0, GD_KT, T_ALIGN_ENTRY, 0);
     SETGATE(idt[T_MCHK], 0, GD_KT, T_MCHK_ENTRY, 0);
     SETGATE(idt[T_SIMDERR], 0, GD_KT, T_SIMDERR_ENTRY, 0);
+    SETGATE(idt[T_SYSCALL], 0, GD_KT, T_SYSCALL_ENTRY, 3);
 
     // Per-CPU setup
     trap_init_percpu();
@@ -187,6 +189,21 @@ trap_dispatch(struct Trapframe *tf)
 {
     // Handle processor exceptions.
     // LAB 3: Your code here.
+    int32_t r;
+    switch (tf->tf_trapno) {
+        case T_BRKPT:
+            breakpoint_handler(tf);
+            break;
+        case T_PGFLT:
+            page_fault_handler(tf);
+            break;
+        case T_SYSCALL:
+            r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+                    tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+                    tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+            tf->tf_regs.reg_eax = r;
+            return;
+    }
 
     // Unexpected trap: The user process or the kernel has a bug.
     print_trapframe(tf);
@@ -234,6 +251,14 @@ trap(struct Trapframe *tf)
     // Return to the current environment, which should be running.
     assert(curenv && curenv->env_status == ENV_RUNNING);
     env_run(curenv);
+}
+
+
+void
+breakpoint_handler(struct Trapframe *tf)
+{
+    print_trapframe(tf);
+    panic("trapping into debug monitor...");
 }
 
 

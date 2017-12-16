@@ -82,6 +82,7 @@ TRAPHANDLER_NOEC(T_FPERR_ENTRY, T_FPERR)            // 16: floating point error
 TRAPHANDLER_NOEC(T_ALIGN_ENTRY, T_ALIGN)            // 17: alignment check
 TRAPHANDLER_NOEC(T_MCHK_ENTRY, T_MCHK)              // 18: machine check
 TRAPHANDLER_NOEC(T_SIMDERR_ENTRY, T_SIMDERR)        // 19: SIMD FP error
+TRAPHANDLER_NOEC(T_SYSCALL_ENTRY, T_SYSCALL)        // 48: syscall
 
 
 /*
