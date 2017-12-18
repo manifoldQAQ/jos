@@ -258,7 +258,7 @@ void
 breakpoint_handler(struct Trapframe *tf)
 {
     print_trapframe(tf);
-    panic("trapping into debug monitor...");
+    monitor(tf);
 }
 
 
