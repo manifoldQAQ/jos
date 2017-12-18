@@ -70,8 +70,53 @@ void
 trap_init(void)
 {
 	extern struct Segdesc gdt[];
+    // register interrupt hander here
+    void T_DIVIDE_ENTRY();
+    void T_DEBUG_ENTRY();
+    void T_NMI_ENTRY();
+    void T_BRKPT_ENTRY();
+    void T_OFLOW_ENTRY();
+    void T_BOUND_ENTRY();
+    void T_ILLOP_ENTRY();
+    void T_DEVICE_ENTRY();
+    void T_DBLFLT_ENTRY();
+    // void T_COPROC_ENTRY();
+    void T_TSS_ENTRY();
+    void T_SEGNP_ENTRY();
+    void T_STACK_ENTRY();
+    void T_GPFLT_ENTRY();
+    void T_PGFLT_ENTRY();
+    // extern void *T_RES_ENTRY();
+    void T_FPERR_ENTRY();
+    void T_ALIGN_ENTRY();
+    void T_MCHK_ENTRY();
+    void T_SIMDERR_ENTRY();
+    void T_SYSCALL_ENTRY();
 
 	// LAB 3: Your code here.
+    // Set up interrupt descriptor table, according to Linux kernel
+    // all default exceptions are set to *intr_gate*
+    SETGATE(idt[T_DIVIDE], 0, GD_KT, T_DIVIDE_ENTRY, 0);
+    SETGATE(idt[T_DEBUG], 0, GD_KT, T_DIVIDE_ENTRY, 0);
+    SETGATE(idt[T_NMI], 0, GD_KT, T_NMI_ENTRY, 0);
+    SETGATE(idt[T_BRKPT], 0, GD_KT, T_BRKPT_ENTRY, 3);
+    SETGATE(idt[T_OFLOW], 0, GD_KT, T_OFLOW_ENTRY, 3);
+    SETGATE(idt[T_BOUND], 0, GD_KT, T_BOUND_ENTRY, 3);
+    SETGATE(idt[T_ILLOP], 0, GD_KT, T_ILLOP_ENTRY, 0);
+    SETGATE(idt[T_DEVICE], 0, GD_KT, T_DEVICE_ENTRY, 0);
+    SETGATE(idt[T_DBLFLT], 0, GD_KT, T_DBLFLT_ENTRY, 0);
+    /* SETGATE(idt[T_COPROC], 0, GD_KT, T_COPROC_ENTRY, 0); */
+    SETGATE(idt[T_TSS], 0, GD_KT, T_TSS_ENTRY, 0);
+    SETGATE(idt[T_SEGNP], 0, GD_KT, T_SEGNP_ENTRY, 0);
+    SETGATE(idt[T_STACK], 0, GD_KT, T_STACK_ENTRY, 0);
+    SETGATE(idt[T_GPFLT], 0, GD_KT, T_GPFLT_ENTRY, 0);
+    SETGATE(idt[T_PGFLT], 0, GD_KT, T_PGFLT_ENTRY, 0);
+    /* SETGATE(idt[T_RES], 0, GD_KT, T_RES_ENTRY, 0); */
+    SETGATE(idt[T_FPERR], 0, GD_KT, T_FPERR_ENTRY, 0);
+    SETGATE(idt[T_ALIGN], 0, GD_KT, T_ALIGN_ENTRY, 0);
+    SETGATE(idt[T_MCHK], 0, GD_KT, T_MCHK_ENTRY, 0);
+    SETGATE(idt[T_SIMDERR], 0, GD_KT, T_SIMDERR_ENTRY, 0);
+    SETGATE(idt[T_SYSCALL], 0, GD_KT, T_SYSCALL_ENTRY, 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -176,6 +221,21 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+    int32_t r;
+    switch (tf->tf_trapno) {
+        case T_BRKPT:
+            breakpoint_handler(tf);
+            break;
+        case T_PGFLT:
+            page_fault_handler(tf);
+            break;
+        case T_SYSCALL:
+            r = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx,
+                    tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx,
+                    tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+            tf->tf_regs.reg_eax = r;
+            return;
+    }
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -261,6 +321,14 @@ trap(struct Trapframe *tf)
 
 
 void
+breakpoint_handler(struct Trapframe *tf)
+{
+    print_trapframe(tf);
+    panic("trapping into debug monitor...");
+}
+
+
+void
 page_fault_handler(struct Trapframe *tf)
 {
 	uint32_t fault_va;
@@ -269,8 +337,10 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
-
 	// LAB 3: Your code here.
+    // Kernel text or privilege
+    if (!(tf->tf_cs & 3))
+        panic("page_fault_handler: unhandled kernel page fault");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
