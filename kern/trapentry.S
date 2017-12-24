@@ -21,26 +21,26 @@
  *   void NAME();
  * where NAME is the argument passed to TRAPHANDLER.
  */
-#define TRAPHANDLER(name, num)						\
-	.globl name;		/* define global symbol for 'name' */	\
-	.type name, @function;	/* symbol type is function */		\
-	.align 2;		/* align function definition */		\
-	name:			/* function starts here */		\
-	pushl $(num);							\
-	jmp _alltraps
+#define TRAPHANDLER(name, num)                      \
+    .globl name;        /* define global symbol for 'name' */   \
+    .type name, @function;  /* symbol type is function */       \
+    .align 2;       /* align function definition */     \
+    name:           /* function starts here */      \
+    pushl $(num);                           \
+    jmp _alltraps
 
 /* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
  * It pushes a 0 in place of the error code, so the trap frame has the same
  * format in either case.
  */
-#define TRAPHANDLER_NOEC(name, num)					\
-	.globl name;							\
-	.type name, @function;						\
-	.align 2;							\
-	name:								\
-	pushl $0;							\
-	pushl $(num);							\
-	jmp _alltraps
+#define TRAPHANDLER_NOEC(name, num)                 \
+    .globl name;                            \
+    .type name, @function;                      \
+    .align 2;                           \
+    name:                               \
+    pushl $0;                           \
+    pushl $(num);                           \
+    jmp _alltraps
 
 .text
 
@@ -83,7 +83,24 @@ TRAPHANDLER_NOEC(T_FPERR_ENTRY, T_FPERR)            // 16: floating point error
 TRAPHANDLER_NOEC(T_ALIGN_ENTRY, T_ALIGN)            // 17: alignment check
 TRAPHANDLER_NOEC(T_MCHK_ENTRY, T_MCHK)              // 18: machine check
 TRAPHANDLER_NOEC(T_SIMDERR_ENTRY, T_SIMDERR)        // 19: SIMD FP error
+TRAPHANDLER_NOEC(T_IRQ_00_ENTRY, T_IRQ_00)          // 32: IRQ 0 timer
+TRAPHANDLER_NOEC(T_IRQ_01_ENTRY, T_IRQ_01)          // 33: IRQ 1 keyboard
+TRAPHANDLER_NOEC(T_IRQ_02_ENTRY, T_IRQ_02)
+TRAPHANDLER_NOEC(T_IRQ_03_ENTRY, T_IRQ_03)
+TRAPHANDLER_NOEC(T_IRQ_04_ENTRY, T_IRQ_04)          // 34: IRQ 4 serial
+TRAPHANDLER_NOEC(T_IRQ_05_ENTRY, T_IRQ_05)
+TRAPHANDLER_NOEC(T_IRQ_06_ENTRY, T_IRQ_06)
+TRAPHANDLER_NOEC(T_IRQ_07_ENTRY, T_IRQ_07)          // 39: IRQ 7 spurious
+TRAPHANDLER_NOEC(T_IRQ_08_ENTRY, T_IRQ_08)
+TRAPHANDLER_NOEC(T_IRQ_09_ENTRY, T_IRQ_09)
+TRAPHANDLER_NOEC(T_IRQ_10_ENTRY, T_IRQ_10)
+TRAPHANDLER_NOEC(T_IRQ_11_ENTRY, T_IRQ_11)
+TRAPHANDLER_NOEC(T_IRQ_12_ENTRY, T_IRQ_12)
+TRAPHANDLER_NOEC(T_IRQ_13_ENTRY, T_IRQ_13)
+TRAPHANDLER_NOEC(T_IRQ_14_ENTRY, T_IRQ_14)          // 46: IRQ 14 IDE
+TRAPHANDLER_NOEC(T_IRQ_15_ENTRY, T_IRQ_15)
 TRAPHANDLER_NOEC(T_SYSCALL_ENTRY, T_SYSCALL)        // 48: syscall
+TRAPHANDLER_NOEC(T_IRQ_19_ENTRY, T_IRQ_19)          // 51: IRQ error
 
 
 /*
