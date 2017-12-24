@@ -1,11 +1,11 @@
 // implement fork from user space
-
+#define JOS_USER 1
 #include <inc/string.h>
 #include <inc/lib.h>
 
 // PTE_COW marks copy-on-write page table entries.
 // It is one of the bits explicitly allocated to user processes (PTE_AVAIL).
-#define PTE_COW		0x800
+#define PTE_COW     0x800
 
 //
 // Custom page fault handler - if faulting page is copy-on-write,
@@ -13,28 +13,39 @@
 //
 static void
 pgfault(struct UTrapframe *utf)
-{
-	void *addr = (void *) utf->utf_fault_va;
-	uint32_t err = utf->utf_err;
-	int r;
+{    
+    void *addr = (void *) utf->utf_fault_va;
+    addr = ROUNDDOWN(addr, PGSIZE);
+    uint32_t err = utf->utf_err;
+    int r;
 
-	// Check that the faulting access was (1) a write, and (2) to a
-	// copy-on-write page.  If not, panic.
-	// Hint:
-	//   Use the read-only page table mappings at uvpt
-	//   (see <inc/memlayout.h>).
+    // Check that the faulting access was (1) a write, and (2) to a
+    // copy-on-write page.  If not, panic.
+    // Hint:
+    //   Use the read-only page table mappings at uvpt
+    //   (see <inc/memlayout.h>).
 
-	// LAB 4: Your code here.
+    // LAB 4: Your code here.
+    if (!((err & FEC_WR) &&
+                (uvpd[PDX(addr)] & PTE_P) &&
+                (uvpt[PGNUM(addr)] & PTE_P) &&
+                (uvpt[PGNUM(addr)] & PTE_COW))) {
+        panic("pgfault: not a write page fault");
+    }
 
-	// Allocate a new page, map it at a temporary location (PFTEMP),
-	// copy the data from the old page to the new page, then move the new
-	// page to the old page's address.
-	// Hint:
-	//   You should make three system calls.
-
-	// LAB 4: Your code here.
-
-	panic("pgfault not implemented");
+    // Allocate a new page, map it at a temporary location (PFTEMP),
+    // copy the data from the old page to the new page, then move the new
+    // page to the old page's address.
+    // Hint:
+    //   You should make three system calls.
+    // LAB 4: Your code here.
+    if ((r = sys_page_alloc(0, PFTEMP, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("pgfault: %e", r);
+    memcpy(PFTEMP, addr, PGSIZE);
+    if ((r = sys_page_map(0, PFTEMP, 0, addr, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("pgfault: %e", r);
+    if ((r = sys_page_unmap(0, PFTEMP)) < 0)
+        panic("pgfault: %e", r);
 }
 
 //
@@ -50,12 +61,23 @@ pgfault(struct UTrapframe *utf)
 //
 static int
 duppage(envid_t envid, unsigned pn)
-{
-	int r;
+{	
+    int r;
+    void *va = (void *) (pn * PGSIZE);
 
-	// LAB 4: Your code here.
-	panic("duppage not implemented");
-	return 0;
+    // LAB 4: Your code here.
+    // Comming page must be PTE_P & PTE_U
+    if (uvpt[pn] & (PTE_W|PTE_COW)) {
+        if ((r = sys_page_map(0, va, envid, va, PTE_U|PTE_P|PTE_COW)) < 0)
+            panic("duppage: %e", r);
+        if ((r = sys_page_map(0, va, 0, va, PTE_U|PTE_P|PTE_COW)) < 0)
+            panic("duppage: %e", r);
+    } else {
+        if ((r = sys_page_map(0, va, envid, va, PTE_U|PTE_P)) < 0)
+            panic("duppage: %e", r);
+    }
+
+    return 0;
 }
 
 //
@@ -77,14 +99,48 @@ duppage(envid_t envid, unsigned pn)
 envid_t
 fork(void)
 {
-	// LAB 4: Your code here.
-	panic("fork not implemented");
+
+
+    // LAB 4: Your code here.
+    envid_t envid;
+    int r;
+    uintptr_t addr;
+    set_pgfault_handler(pgfault);
+    envid = sys_exofork();
+    if (envid < 0)
+        panic("user fork: error");
+    if (envid == 0) {
+        // We're the child.
+        // The copied value of the global variable 'thisenv'
+        // is no longer valid (it refers to the parent!).
+        // Fix it and return 0.
+        thisenv = &envs[ENVX(sys_getenvid())];
+        return 0;
+    }
+    // Dup parent user pages to child, if PTE_P & PTE_U.
+    // User exception stack must be allocated by user,
+    // instead of remapped in kernel.
+    for (uintptr_t va = 0; va < USTACKTOP; va += PGSIZE) {
+        if ((uvpd[PDX(va)] & PTE_P) &&
+                (uvpt[PGNUM(va)] & PTE_P) &&
+                (uvpt[PGNUM(va)] & PTE_U)) {
+            duppage(envid, PGNUM(va));
+        }
+    }
+
+    if ((r = sys_page_alloc(envid, (void *) UXSTACKTOP - PGSIZE, PTE_P|PTE_U|PTE_W)) < 0)
+        panic("user fork: %e", r);
+    extern void _pgfault_upcall();
+    // pgfault_handler is set, but we need to setup upcall in child env.
+    sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+    sys_env_set_status(envid, ENV_RUNNABLE);
+    return envid;
 }
 
 // Challenge!
 int
 sfork(void)
 {
-	panic("sfork not implemented");
-	return -E_INVAL;
+    panic("sfork not implemented");
+    return -E_INVAL;
 }
