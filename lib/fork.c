@@ -80,6 +80,26 @@ duppage(envid_t envid, unsigned pn)
     return 0;
 }
 
+
+// Shared memory page dup
+// if PTE_W/PTE_U, simply dup
+// if PTE_COW, we are not able to do a shared fork, panic!
+// no need to check page validity, we've done this
+// in sfork()
+static int
+sduppage(envid_t envid, unsigned pn)
+{
+    void *va = (void *) (pn * PGSIZE);
+    if (uvpt[pn] & PTE_COW) {
+        sys_page_alloc(envid, va, PTE_P|PTE_W|PTE_U);
+        sys_page_map(envid, va, 0, UTEMP, PTE_P|PTE_W|PTE_U);
+        memcpy(UTEMP, (void *) USTACKTOP - PGSIZE, PGSIZE);
+        sys_page_unmap(0, UTEMP);
+        return 0;
+    }
+    sys_page_map(0, va, envid, va, PTE_P|PTE_U|PTE_W);
+    return 0;
+}
 //
 // User-level fork with copy-on-write.
 // Set up our page fault handler appropriately.
@@ -99,8 +119,6 @@ duppage(envid_t envid, unsigned pn)
 envid_t
 fork(void)
 {
-
-
     // LAB 4: Your code here.
     envid_t envid;
     int r;
@@ -141,6 +159,44 @@ fork(void)
 int
 sfork(void)
 {
-    panic("sfork not implemented");
-    return -E_INVAL;
+    // LAB 4: Your code here.
+    envid_t envid;
+    int r;
+    void *ustackbot = (void *) USTACKTOP - PGSIZE;
+
+    set_pgfault_handler(pgfault);
+    envid = sys_exofork();
+    if (envid < 0)
+        panic("user fork: error");
+    if (envid == 0) {
+        // We're the child.
+        // The copied value of the global variable 'thisenv'
+        // is no longer valid (it refers to the parent!).
+        // Fix it and return 0.
+        thisenv = &envs[ENVX(sys_getenvid())];
+        return 0;
+    }
+    // Dup parent user pages to child, if PTE_P & PTE_U.
+    // User exception stack must be allocated by user,
+    // instead of remapped in kernel.
+    for (void *va = 0; va < ustackbot; va += PGSIZE) {
+        if ((uvpd[PDX(va)] & PTE_P) &&
+                (uvpt[PGNUM(va)] & PTE_P) &&
+                (uvpt[PGNUM(va)] & PTE_U)) {
+            sduppage(envid, PGNUM(va));
+        }
+    }
+
+    // copies user stack
+    r = sys_page_alloc(envid, ustackbot, PTE_P|PTE_U|PTE_W);
+    r = sys_page_map(envid, ustackbot, 0, UTEMP, PTE_P|PTE_U|PTE_W);
+    memcpy(UTEMP, ustackbot, PGSIZE);
+    r = sys_page_unmap(0, UTEMP);
+    if (r < 0)
+        panic("user sfork: %e", r);
+    extern void _pgfault_upcall();
+    // pgfault_handler is set, but we need to setup upcall in child env.
+    sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+    sys_env_set_status(envid, ENV_RUNNABLE);
+    return envid;
 }
