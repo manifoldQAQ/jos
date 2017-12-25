@@ -320,7 +320,42 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
     // LAB 4: Your code here.
-    panic("sys_ipc_try_send not implemented");
+    struct Env *dstenv;
+    int sanity_perm = 0, r;
+    pte_t *pte;
+    struct PageInfo *pp = NULL;
+    // Verbose checks
+    if (envid2env(envid, &dstenv, 0) < 0)
+        return -E_BAD_ENV;
+    if (!dstenv->env_ipc_recving)
+        return -E_IPC_NOT_RECV;
+    if ((uintptr_t) srcva > UTOP)
+        return -E_INVAL;
+    if ((uintptr_t) srcva < UTOP) {
+        if ((uintptr_t) srcva % PGSIZE != 0)
+            return -E_INVAL;
+        sanity_perm |= PTE_P | PTE_U;
+        if ((perm & sanity_perm) != sanity_perm)
+            return -E_INVAL;
+        sanity_perm |= PTE_AVAIL | PTE_W;
+        if ((perm | sanity_perm) != sanity_perm)
+            return -E_INVAL;
+        if (!(pp = page_lookup(curenv->env_pgdir, srcva, &pte)))
+            return -E_INVAL;
+        if ((perm & PTE_W) && !(*pte & PTE_W))
+            return -E_INVAL;
+        if ((r = page_insert(dstenv->env_pgdir, pp, dstenv->env_ipc_dstva, perm)) < 0)
+            return -E_NO_MEM;
+        if (r) return r;
+        dstenv->env_ipc_perm = perm;
+    }
+    // we do interesting stuff now
+    dstenv->env_ipc_recving = 0;
+    dstenv->env_ipc_from = curenv->env_id;
+    dstenv->env_ipc_value = value;
+    dstenv->env_tf.tf_regs.reg_eax = 0;
+    dstenv->env_status = ENV_RUNNABLE;
+    return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -338,7 +373,14 @@ static int
 sys_ipc_recv(void *dstva)
 {
     // LAB 4: Your code here.
-    panic("sys_ipc_recv not implemented");
+    if ((uintptr_t) dstva < UTOP && (uintptr_t) dstva % PGSIZE != 0)
+        return -E_INVAL;
+    curenv->env_ipc_recving = 1;
+    curenv->env_ipc_dstva = dstva;
+    curenv->env_status = ENV_NOT_RUNNABLE;
+    sched_yield();
+    // since we are ready for recving memory from other envs, we
+    // give up CPU and wait for finish recving, i.e. it is runnable.
     return 0;
 }
 
@@ -393,6 +435,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             break;
         case NSYSCALLS:
             r = -E_INVAL;
+            break;
     }
     return r;
 }

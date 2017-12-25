@@ -42,7 +42,8 @@ sched_yield(void)
                 env_run(&envs[idx]);
         }
         // If we are here, it means that we can only run curenv
-        env_run(curenv);
+        if (curenv->env_status == ENV_RUNNING)
+            env_run(curenv);
     }
     // No curenv, we have to find one!
     for (idx = 0; idx < NENV; idx++) {
@@ -52,9 +53,6 @@ sched_yield(void)
     }
     // If we are here, no process to run
     sched_halt();
-
-    /* // sched_halt never returns */
-    /* sched_halt(); */
 }
 
 // Halt this CPU when there is nothing to do. Wait until the
@@ -100,7 +98,7 @@ sched_halt(void)
         // Uncomment the following line after completing exercise 13
         "sti\n"
         "1:\n"
-        "hlt\n"
+        "hlt\n" // halt until next external interrupt fires
         "jmp 1b\n"
     : : "a" (thiscpu->cpu_ts.ts_esp0));
 }
