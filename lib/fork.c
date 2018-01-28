@@ -13,7 +13,7 @@
 //
 static void
 pgfault(struct UTrapframe *utf)
-{    
+{
     void *addr = (void *) utf->utf_fault_va;
     addr = ROUNDDOWN(addr, PGSIZE);
     uint32_t err = utf->utf_err;
@@ -61,13 +61,16 @@ pgfault(struct UTrapframe *utf)
 //
 static int
 duppage(envid_t envid, unsigned pn)
-{	
+{
     int r;
     void *va = (void *) (pn * PGSIZE);
 
     // LAB 4: Your code here.
     // Comming page must be PTE_P & PTE_U
-    if (uvpt[pn] & (PTE_W|PTE_COW)) {
+    if (uvpt[pn] & PTE_SHARE) {
+        if ((r = sys_page_map(0, va, envid, va, uvpt[pn]&PTE_SYSCALL)) < 0)
+            panic("duppage: %e", r);
+    } else if (uvpt[pn] & (PTE_W|PTE_COW)) {
         if ((r = sys_page_map(0, va, envid, va, PTE_U|PTE_P|PTE_COW)) < 0)
             panic("duppage: %e", r);
         if ((r = sys_page_map(0, va, 0, va, PTE_U|PTE_P|PTE_COW)) < 0)

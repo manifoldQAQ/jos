@@ -68,6 +68,8 @@ openfile_alloc(struct OpenFile **o)
 
     // Find an available open-file table entry
     for (i = 0; i < MAXOPEN; i++) {
+        // If the fd is already mapped, there will be two copies:
+        // one in fs server and one in user space.
         switch (pageref(opentab[i].o_fd)) {
         case 0:
             if ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P|PTE_U|PTE_W)) < 0)
@@ -314,6 +316,8 @@ serve(void)
     int perm, r;
     void *pg;
 
+    // We serve incoming fsreqs in a synchronized way, thus no
+    // need to worry about concurrent IPC calls.
     while (1) {
         perm = 0;
         req = ipc_recv((int32_t *) &whom, fsreq, &perm);

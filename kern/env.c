@@ -542,6 +542,7 @@ env_run(struct Env *e)
 
 	// LAB 3: Your code here.
 
+    // Note that curenv is a per-CPU variable.
     if (curenv && curenv->env_status == ENV_RUNNING)
         curenv->env_status = ENV_RUNNABLE;
     curenv = e;

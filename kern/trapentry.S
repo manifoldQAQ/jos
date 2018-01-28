@@ -119,5 +119,5 @@ _alltraps:
     movw $(GD_KD), %ax
     movw %ax, %ds
     movw %ax, %es
-    pushl %esp
+    pushl %esp # push function arg
     call trap
