@@ -24,9 +24,27 @@
 #define T_MCHK      18		// machine check
 #define T_SIMDERR   19		// SIMD floating point error
 
+#define T_IRQ_00    32      // External IRQs starts here
+#define T_IRQ_01    33
+#define T_IRQ_02    34
+#define T_IRQ_03    35
+#define T_IRQ_04    36
+#define T_IRQ_05    37
+#define T_IRQ_06    38
+#define T_IRQ_07    39
+#define T_IRQ_08    40
+#define T_IRQ_09    41
+#define T_IRQ_10    42
+#define T_IRQ_11    43
+#define T_IRQ_12    44
+#define T_IRQ_13    45
+#define T_IRQ_14    46
+#define T_IRQ_15    47
+
 // These are arbitrarily chosen, but with care not to overlap
 // processor defined exceptions or interrupt vectors.
 #define T_SYSCALL   48		// system call
+#define T_IRQ_19    51
 #define T_DEFAULT   500		// catchall
 
 #define IRQ_OFFSET	32	// IRQ 0 corresponds to int IRQ_OFFSET
