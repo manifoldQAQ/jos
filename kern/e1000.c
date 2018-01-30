@@ -11,6 +11,11 @@ volatile uint32_t *e1000; // Declare as volatile to prevent reordering.
 struct e1000_tx_desc tx_descs[N_TX_DESCS] __attribute__((aligned (16)));
 uint8_t tx_bufs[N_TX_DESCS][ETH_PKT_SIZE];
 
+/* Reception descriptor ring */
+struct e1000_rx_desc rx_descs[N_RX_DESCS] __attribute__((aligned (16)));
+uint8_t rx_bufs[N_RX_DESCS][RX_BUF_SIZE];
+
+
 // LAB 6: Your driver code here
 int
 pci_e1000_attach(struct pci_func *pcif)
@@ -23,8 +28,9 @@ pci_e1000_attach(struct pci_func *pcif)
     e1000 = mmio_map_region(pcif->reg_base[0], pcif->reg_size[0]);
     check_e1000_mmio();
 
-    // Initialize network transmission.
+    // Initialize net card.
     e1000_tx_init();
+    e1000_rx_init();
     return 0;
 }
 
@@ -71,6 +77,28 @@ e1000_tx_init()
     e1000[E1000_TIPG>>2]  = (6<<20) | (4<<10) | 10;
 }
 
+static void
+e1000_rx_init()
+{
+    // Alloc descriptors, program RDBA, RDLEN, RDH, and RDT.
+    assert(sizeof(rx_descs) % 128 == 0);
+    memset(rx_descs, 0, sizeof(rx_descs));
+    for (int i = 0; i < N_RX_DESCS; i++)
+        rx_descs[i].buffer_addr = PADDR(&rx_bufs[i]);
+
+    // Set receive address.
+    e1000[E1000_RA>>2] = 0x12005452;
+    e1000[(E1000_RA>>2)+1] = 0x00005634 | E1000_RAH_AV;
+
+    e1000[E1000_RDBAL>>2] = PADDR(rx_descs);
+    e1000[E1000_RDLEN>>2] = sizeof(rx_descs);
+    e1000[E1000_RDH>>2] = 0;
+    e1000[E1000_RDT>>2] = N_RX_DESCS - 1;
+    e1000[E1000_RCTL>>2] |= E1000_RCTL_EN;
+	e1000[E1000_RCTL>>2] |= E1000_RCTL_BAM;
+	e1000[E1000_RCTL>>2] |= E1000_RCTL_SZ_2048;
+	e1000[E1000_RCTL>>2] |= E1000_RCTL_SECRC;
+}
 
 
 static void
