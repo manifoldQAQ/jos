@@ -25,12 +25,6 @@ pci_e1000_attach(struct pci_func *pcif)
 
     // Initialize network transmission.
     e1000_tx_init();
-    uint8_t s[10] = "hello";
-    uint8_t ss[10] = "world";
-    uint8_t sss[10] = "from jos";
-    e1000_transmit(s, 10);
-    e1000_transmit(ss, 10);
-    e1000_transmit(sss, 10);
     return 0;
 }
 

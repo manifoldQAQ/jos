@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -138,7 +139,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// address!
     int r;
     struct Env *env;
-    
+
     if ((r = envid2env(envid, &env, 1)) < 0)
         return r;
 
@@ -416,6 +417,35 @@ sys_time_msec(void)
     return time_msec();
 }
 
+// Try to transmit a packet to network.
+// return 0 on sucess.
+// return -E_INVAL if:
+//  1. srcva is not under UTOP;
+//  2. len exceeds the maximum of a packet;
+//  3. [srcva, srcva+len) is not mapped.
+// return -E_NO_TX_BUF if netdriver buf is full.
+static int
+sys_net_try_send(void *srcva, int len)
+{
+    struct PageInfo *pp;
+    int r;
+
+    if ((uintptr_t) srcva + len > UTOP)
+        return -E_INVAL;
+    if (len > ETH_PKT_SIZE)
+        return -E_INVAL;
+    if (len != 0) {
+        if (!(pp = page_lookup(curenv->env_pgdir, srcva, NULL)))
+            return -E_INVAL;
+        // Possibly another page.
+        if (!(pp = page_lookup(curenv->env_pgdir, srcva + len -1, NULL)))
+            return -E_INVAL;
+    }
+
+    r = e1000_transmit(srcva, len);
+    return r;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -470,6 +500,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             break;
         case SYS_time_msec:
             r = sys_time_msec();
+            break;
+        case SYS_net_try_send:
+            r = sys_net_try_send((void *) a1, a2);
             break;
         case NSYSCALLS:
             r = -E_INVAL;

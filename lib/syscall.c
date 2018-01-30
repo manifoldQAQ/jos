@@ -122,3 +122,9 @@ sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_net_try_send(void *srcva, int len)
+{
+    return syscall(SYS_net_try_send, 1, (uint32_t) srcva, len, 0, 0, 0);
+}
