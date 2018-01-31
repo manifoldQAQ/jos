@@ -39,6 +39,8 @@ e1000_transmit(uint8_t data[], int len)
 {
     int tail = e1000[E1000_TDT>>2];
 
+    if (!data)
+        return -E_INVAL;
     // No buffer left.
     if (!(tx_descs[tail].upper.data & E1000_TXD_STAT_DD))
         return -E_NO_TX_BUF;
@@ -52,6 +54,29 @@ e1000_transmit(uint8_t data[], int len)
     tx_descs[tail].upper.data &= ~E1000_TXD_STAT_DD;
     e1000[E1000_TDT>>2] = (tail + 1) % N_TX_DESCS;
     return 0;
+}
+
+int
+e1000_receive(uint8_t data[])
+{
+    // [head, tail) are free descriptors maintained by hardware.
+    // tail+1 is the first available packet to transfer (if exists).
+    int tail = e1000[E1000_RDT>>2];
+    tail = (tail + 1) % N_RX_DESCS;
+
+    if (!data)
+        return -E_INVAL;
+    if (!(rx_descs[tail].status & E1000_RXD_STAT_DD))
+        return -E_NO_RX_PKT;
+    if (!(rx_descs[tail].status & E1000_RXD_STAT_EOP))
+        return -E_RX_LONG_PKT;
+
+    int len = rx_descs[tail].length;
+    memcpy(data, rx_bufs[tail], len);
+    rx_descs[tail].status &= ~E1000_RXD_STAT_DD;
+    rx_descs[tail].status &= ~E1000_RXD_STAT_EOP;
+    e1000[E1000_RDT>>2] = tail;
+    return len;
 }
 
 static void
@@ -95,9 +120,9 @@ e1000_rx_init()
     e1000[E1000_RDH>>2] = 0;
     e1000[E1000_RDT>>2] = N_RX_DESCS - 1;
     e1000[E1000_RCTL>>2] |= E1000_RCTL_EN;
-	e1000[E1000_RCTL>>2] |= E1000_RCTL_BAM;
-	e1000[E1000_RCTL>>2] |= E1000_RCTL_SZ_2048;
-	e1000[E1000_RCTL>>2] |= E1000_RCTL_SECRC;
+    e1000[E1000_RCTL>>2] |= E1000_RCTL_BAM;
+    e1000[E1000_RCTL>>2] |= E1000_RCTL_SZ_2048;
+    e1000[E1000_RCTL>>2] |= E1000_RCTL_SECRC;
 }
 
 

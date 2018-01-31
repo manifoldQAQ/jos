@@ -427,22 +427,23 @@ sys_time_msec(void)
 static int
 sys_net_try_send(void *srcva, int len)
 {
-    struct PageInfo *pp;
-    int r;
-
-    if ((uintptr_t) srcva + len > UTOP)
-        return -E_INVAL;
     if (len > ETH_PKT_SIZE)
         return -E_INVAL;
-    if (len != 0) {
-        if (!(pp = page_lookup(curenv->env_pgdir, srcva, NULL)))
-            return -E_INVAL;
-        // Possibly another page.
-        if (!(pp = page_lookup(curenv->env_pgdir, srcva + len -1, NULL)))
-            return -E_INVAL;
-    }
+    user_mem_assert(curenv, srcva, len, PTE_U|PTE_P);
+    int r = e1000_transmit(srcva, len);
+    return r;
+}
 
-    r = e1000_transmit(srcva, len);
+// Try to receive a packet from network.
+// return 0 on success.
+// return -E_INVAL if input is invalid.
+// return -E_NO_RX_PKT if no packets to receive.
+// return -E_RX_LONG_PKT if the packet does not have EOP.
+static int
+sys_net_try_recv(void *dstva)
+{
+    user_mem_assert(curenv, dstva, PGSIZE, PTE_U|PTE_P);
+    int r = e1000_receive(dstva);
     return r;
 }
 
@@ -503,6 +504,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
             break;
         case SYS_net_try_send:
             r = sys_net_try_send((void *) a1, a2);
+            break;
+        case SYS_net_try_recv:
+            r = sys_net_try_recv((void *) a1);
             break;
         case NSYSCALLS:
             r = -E_INVAL;

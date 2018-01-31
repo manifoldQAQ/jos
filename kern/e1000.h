@@ -69,6 +69,10 @@ struct e1000_rx_desc {
     uint16_t special;
 };
 
+/* Receive Descriptor bit definitions */
+#define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
+#define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
+
 /* Receive Registers */
 #define E1000_RCTL     0x00100  /* RX Control - RW */
 #define E1000_RDBAL    0x02800  /* RX Descriptor Base Address Low - RW */
@@ -91,6 +95,7 @@ struct e1000_rx_desc {
 /* kern/e1000.c */
 int pci_e1000_attach(struct pci_func *pcif);
 int e1000_transmit(uint8_t data[], int len);
+int e1000_receive(uint8_t data[]);
 static void e1000_tx_init();
 static void e1000_rx_init();
 static void check_e1000_mmio();

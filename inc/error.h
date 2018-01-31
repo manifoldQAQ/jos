@@ -28,6 +28,8 @@ enum {
 
     // Network driver error code
     E_NO_TX_BUF,
+    E_NO_RX_PKT,
+    E_RX_LONG_PKT,
 
 	MAXERROR
 };

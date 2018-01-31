@@ -128,3 +128,9 @@ sys_net_try_send(void *srcva, int len)
 {
     return syscall(SYS_net_try_send, 1, (uint32_t) srcva, len, 0, 0, 0);
 }
+
+int
+sys_net_try_recv(void *dstva)
+{
+    return syscall(SYS_net_try_recv, 0, (uint32_t) dstva, 0, 0, 0, 0);
+}
